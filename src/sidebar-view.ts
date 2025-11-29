@@ -35,9 +35,20 @@ export class GPTEditorView extends ItemView {
 		});
 		titleEl.addClass('gpt-editor-title');
 
-		// 설명 추가
+		// 설명 및 프롬프트 안내 추가
+		const promptText = [
+			'${제목}에 맞는 마크다운 문서 생성. 백과사전 느낌으로, 한국어 문서 생성. 용어는 영어로 사용해도 괜찮다.',
+			'',
+			'문서 마지막에는',
+			'',
+			'---',
+			'',
+			'관련 문서: [[다른 문서명]], [[다른 문서명2]]',
+			'',
+			'이런식으로 형식 맞춰줘. 관련 문서명은 새롭게 추천해서 추가.',
+		].join('\n');
 		const descEl = contentEl.createEl('p', {
-			text: '현재 열린 마크다운 문서의 제목에 맞는 백과사전 스타일 문서를 생성합니다.',
+			text: `현재 열린 마크다운 문서의 제목에 맞는 백과사전 스타일 문서를 생성합니다.------\n\n프롬프트 예시:\n${promptText}`,
 		});
 		descEl.addClass('gpt-editor-description');
 
