@@ -7,6 +7,7 @@ export const VIEW_TYPE_GPT_EDITOR = 'gpt-editor-view';
 
 export class GPTEditorView extends ItemView {
 	plugin: GPTEditorPluginInterface;
+	private statusWrapperEl: HTMLElement | null = null;
 	private statusContainerEl: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: GPTEditorPluginInterface) {
@@ -63,10 +64,8 @@ export class GPTEditorView extends ItemView {
 			await this.handleEditDocument();
 		});
 
-		// 상태 로그 영역
-		this.statusContainerEl = contentEl.createEl('div', {
-			cls: 'gpt-editor-status-log',
-		});
+		// 상태 로그 및 컨트롤 영역
+		this.createStatusWrapper();
 	}
 
 	async handleEditDocument() {
@@ -161,19 +160,55 @@ export class GPTEditorView extends ItemView {
 	async onClose() {
 		const { contentEl } = this;
 		contentEl.empty();
+		this.statusWrapperEl = null;
 		this.statusContainerEl = null;
 	}
 
 	private ensureStatusContainer(): HTMLElement {
+		if (!this.statusWrapperEl || !this.statusWrapperEl.isConnected) {
+			return this.createStatusWrapper();
+		}
+
 		if (
 			!this.statusContainerEl ||
 			!this.statusContainerEl.isConnected
 		) {
-			this.statusContainerEl = this.contentEl.createEl('div', {
-				cls: 'gpt-editor-status-log',
-			});
+			this.statusContainerEl =
+				this.statusWrapperEl.createDiv(
+					'gpt-editor-status-log'
+				);
 		}
+
 		return this.statusContainerEl;
+	}
+
+	private createStatusWrapper(): HTMLElement {
+		this.statusWrapperEl = this.contentEl.createDiv(
+			'gpt-editor-status-wrapper'
+		);
+
+		this.statusContainerEl =
+			this.statusWrapperEl.createDiv(
+				'gpt-editor-status-log'
+			);
+
+		const clearButton =
+			this.statusWrapperEl.createEl('button', {
+				text: '로그 비우기',
+			});
+		clearButton.addClass('gpt-editor-clear-button');
+		clearButton.addEventListener('click', () => {
+			this.clearStatusLog();
+		});
+
+		return this.statusContainerEl;
+	}
+
+	private clearStatusLog() {
+		if (!this.statusContainerEl) {
+			return;
+		}
+		this.statusContainerEl.empty();
 	}
 
 	private openNote(filePath: string) {
