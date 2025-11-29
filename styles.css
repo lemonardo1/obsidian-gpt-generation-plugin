@@ -62,6 +62,11 @@
 	color: var(--text-on-accent);
 }
 
+.gpt-editor-status.is-success.is-clickable {
+	cursor: pointer;
+	box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
 .gpt-editor-status.is-error {
 	background-color: var(--background-modifier-error);
 	color: var(--text-on-accent);

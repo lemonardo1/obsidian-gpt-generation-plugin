@@ -1,5 +1,6 @@
-import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
-import { GPTEditorPluginInterface } from './types';
+import { ItemView, Notice, TFile } from 'obsidian';
+import type { WorkspaceLeaf } from 'obsidian';
+import type { GPTEditorPluginInterface } from './types';
 import { callGPTAPI } from './gpt-service';
 
 export const VIEW_TYPE_GPT_EDITOR = 'gpt-editor-view';
@@ -38,7 +39,7 @@ export class GPTEditorView extends ItemView {
 
 		// 설명 및 프롬프트 안내 추가
 		const promptText = [
-			'${제목}에 맞는 마크다운 문서 생성. 백과사전 느낌으로, 한국어 문서 생성. 용어는 영어로 사용해도 괜찮다.',
+			'문서 제목에 맞는 마크다운 문서 생성. 백과사전 느낌으로, 한국어 문서 생성. 용어는 영어로 사용해도 괜찮다.',
 			'',
 			'문서 마지막에는',
 			'',
@@ -85,13 +86,16 @@ export class GPTEditorView extends ItemView {
 		const title = activeFile.basename;
 
 		const statusContainer = this.ensureStatusContainer();
+		const filePath = activeFile.path;
+
 		const statusItem = statusContainer.createEl('div', {
 			cls: 'gpt-editor-status',
 		});
 		statusItem.addClass('is-loading');
 		statusItem.setText(`'${title}' 문서를 생성하는 중...`);
+		statusItem.dataset.filePath = filePath;
 
-		let result;
+		let result: Awaited<ReturnType<typeof callGPTAPI>>;
 		try {
 			result = await callGPTAPI(
 				title,
@@ -131,9 +135,16 @@ export class GPTEditorView extends ItemView {
 				`'${title}' 문서 생성이 완료되었습니다!`
 			);
 			statusItem.addClass('is-success');
+			statusItem.addClass('is-clickable');
 			statusItem.setText(
 				`'${title}' 문서 생성 완료!`
 			);
+			statusItem.addEventListener('click', () => {
+				const targetPath = statusItem.dataset.filePath;
+				if (targetPath) {
+					this.openNote(targetPath);
+				}
+			});
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error
@@ -163,6 +174,22 @@ export class GPTEditorView extends ItemView {
 			});
 		}
 		return this.statusContainerEl;
+	}
+
+	private openNote(filePath: string) {
+		const abstractFile =
+			this.app.vault.getAbstractFileByPath(filePath);
+		if (!(abstractFile instanceof TFile)) {
+			new Notice('파일을 열 수 없습니다.');
+			return;
+		}
+		const leaf = this.app.workspace.getLeaf(true);
+		if (!leaf) {
+			new Notice('파일을 열기 위한 창을 찾을 수 없습니다.');
+			return;
+		}
+		leaf.openFile(abstractFile);
+		this.app.workspace.setActiveLeaf(leaf, { focus: true });
 	}
 }
 
