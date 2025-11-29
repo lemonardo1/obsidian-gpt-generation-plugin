@@ -1,134 +1,91 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin } from 'obsidian';
+import { GPTEditorSettings, DEFAULT_SETTINGS } from './src/settings';
+import { GPTEditorSettingTab } from './src/settings-tab';
+import {
+	GPTEditorView,
+	VIEW_TYPE_GPT_EDITOR,
+} from './src/sidebar-view';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export class GPTEditorPlugin extends Plugin {
+	settings: GPTEditorSettings;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		// 왼쪽 사이드바 리본에 아이콘 버튼 추가
+		const ribbonIconEl = this.addRibbonIcon(
+			'rocking-chair',
+			'GPT 문서 편집기',
+			async (evt: MouseEvent) => {
+				// 버튼 클릭 시 오른쪽 사이드바 뷰 활성화
+				await this.activateView();
+			}
+		);
+		ribbonIconEl.addClass('gpt-editor-ribbon-icon');
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+		// 오른쪽 사이드바에 뷰 등록
+		this.registerView(
+			VIEW_TYPE_GPT_EDITOR,
+			(leaf) => new GPTEditorView(leaf, this)
+		);
 
-		// This adds a simple command that can be triggered anywhere
+		// 뷰 활성화
+		this.activateView();
+
+		// 설정 탭 추가
+		this.addSettingTab(new GPTEditorSettingTab(this));
+
+		// 명령어 추가: 사이드바 열기/닫기
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
+			id: 'toggle-gpt-editor-view',
+			name: 'GPT 편집기 사이드바 토글',
 			callback: () => {
-				new SampleModal(this.app).open();
-			}
+				this.activateView();
+			},
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, _view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
-	onunload() {
-
+	async onunload() {
+		// 뷰 정리
+		this.app.workspace
+			.getLeavesOfType(VIEW_TYPE_GPT_EDITOR)
+			.forEach((leaf) => leaf.detach());
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-}
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+	async activateView() {
+		const { workspace } = this.app;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+		// 이미 뷰가 열려있는지 확인
+		let leaf = workspace.getLeavesOfType(VIEW_TYPE_GPT_EDITOR)[0];
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
+		if (!leaf) {
+			// 오른쪽 사이드바에 뷰 추가
+			const rightLeaf = workspace.getRightLeaf(false);
+			if (!rightLeaf) {
+				return;
+			}
+			leaf = rightLeaf;
+			await leaf.setViewState({
+				type: VIEW_TYPE_GPT_EDITOR,
+				active: true,
+			});
+		}
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+		// 뷰 활성화
+		workspace.revealLeaf(leaf);
 	}
 }
+
+export default GPTEditorPlugin;

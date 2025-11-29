@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "gpt-editor",
+	"name": "GPT Editor",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "GPT를 이용하여 마크다운 문서를 자동으로 개선하고 수정하는 플러그인입니다.",
+	"author": "",
+	"authorUrl": "",
+	"fundingUrl": "",
 	"isDesktopOnly": false
 }
