@@ -6,6 +6,7 @@ export const VIEW_TYPE_GPT_EDITOR = 'gpt-editor-view';
 
 export class GPTEditorView extends ItemView {
 	plugin: GPTEditorPluginInterface;
+	private statusContainerEl: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: GPTEditorPluginInterface) {
 		super(leaf);
@@ -61,11 +62,10 @@ export class GPTEditorView extends ItemView {
 			await this.handleEditDocument();
 		});
 
-		// 상태 표시 영역
-		const statusEl = contentEl.createEl('div', {
-			cls: 'gpt-editor-status',
+		// 상태 로그 영역
+		this.statusContainerEl = contentEl.createEl('div', {
+			cls: 'gpt-editor-status-log',
 		});
-		statusEl.style.display = 'none';
 	}
 
 	async handleEditDocument() {
@@ -84,63 +84,85 @@ export class GPTEditorView extends ItemView {
 		// 파일명에서 제목 추출 (확장자 제거)
 		const title = activeFile.basename;
 
-		// 상태 표시
-		const statusEl = this.contentEl.querySelector(
-			'.gpt-editor-status'
-		) as HTMLElement;
-		if (statusEl) {
-			statusEl.style.display = 'block';
-			statusEl.textContent = 'GPT로 문서를 생성하는 중...';
-			statusEl.addClass('is-loading');
+		const statusContainer = this.ensureStatusContainer();
+		const statusItem = statusContainer.createEl('div', {
+			cls: 'gpt-editor-status',
+		});
+		statusItem.addClass('is-loading');
+		statusItem.setText(`'${title}' 문서를 생성하는 중...`);
+
+		let result;
+		try {
+			result = await callGPTAPI(
+				title,
+				this.plugin.settings
+			);
+		} catch (error) {
+			statusItem.removeClass('is-loading');
+			statusItem.addClass('is-error');
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: String(error);
+			statusItem.setText(
+				`'${title}' 문서 생성 실패: ${errorMessage}`
+			);
+			new Notice(
+				`'${title}' 문서 생성 실패: ${errorMessage}`
+			);
+			return;
 		}
 
-		// GPT API 호출
-		const result = await callGPTAPI(
-			title,
-			this.plugin.settings
-		);
-
-		if (statusEl) {
-			statusEl.removeClass('is-loading');
-		}
+		statusItem.removeClass('is-loading');
 
 		if (result.error) {
 			new Notice(result.error);
-			if (statusEl) {
-				statusEl.textContent = `오류: ${result.error}`;
-				statusEl.addClass('is-error');
-			}
+			statusItem.addClass('is-error');
+			statusItem.setText(
+				`'${title}' 문서 생성 실패: ${result.error}`
+			);
 			return;
 		}
 
 		// 문서 내용 업데이트
 		try {
 			await this.app.vault.modify(activeFile, result.content);
-			new Notice('문서가 성공적으로 생성되었습니다!');
-			if (statusEl) {
-				statusEl.textContent = '생성 완료!';
-				statusEl.addClass('is-success');
-				setTimeout(() => {
-					statusEl.style.display = 'none';
-					statusEl.removeClass('is-success');
-				}, 3000);
-			}
+			new Notice(
+				`'${title}' 문서 생성이 완료되었습니다!`
+			);
+			statusItem.addClass('is-success');
+			statusItem.setText(
+				`'${title}' 문서 생성 완료!`
+			);
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error
 					? error.message
 					: String(error);
 			new Notice(`문서 저장 오류: ${errorMessage}`);
-			if (statusEl) {
-				statusEl.textContent = `저장 오류: ${errorMessage}`;
-				statusEl.addClass('is-error');
-			}
+			statusItem.addClass('is-error');
+			statusItem.setText(
+				`'${title}' 문서 저장 오류: ${errorMessage}`
+			);
 		}
 	}
 
 	async onClose() {
 		const { contentEl } = this;
 		contentEl.empty();
+		this.statusContainerEl = null;
+	}
+
+	private ensureStatusContainer(): HTMLElement {
+		if (
+			!this.statusContainerEl ||
+			!this.statusContainerEl.isConnected
+		) {
+			this.statusContainerEl = this.contentEl.createEl('div', {
+				cls: 'gpt-editor-status-log',
+			});
+		}
+		return this.statusContainerEl;
 	}
 }
 

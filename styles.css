@@ -37,8 +37,15 @@
 	background-color: var(--interactive-active);
 }
 
-.gpt-editor-status {
+.gpt-editor-status-log {
 	margin-top: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.gpt-editor-status {
+	margin: 0;
 	padding: 0.75rem;
 	border-radius: 4px;
 	font-size: 0.9rem;
